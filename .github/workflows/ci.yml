@@ -1,0 +1,25 @@
+name: Validate Freese Frame
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check JavaScript syntax
+        run: node --check app.js
+      - name: Verify required application files
+        run: |
+          test -s index.html
+          test -s styles.css
+          test -s app.js
+          test -s README.md
