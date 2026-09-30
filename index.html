@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Freese Frame — The Elementary Forest Sampling App</title>
+  <meta name="description" content="Freese Frame is a desktop-first forest sampling web app with sample planning, spatial plot layout, analysis, and guidance based on Frank Freese's Elementary Forest Sampling." />
+  <meta name="theme-color" content="#23452F" />
+  <meta property="og:title" content="Freese Frame" />
+  <meta property="og:description" content="The Elementary Forest Sampling App — interactive tools and guidance based on Frank Freese's classic USDA Forest Service handbook." />
+  <meta property="og:type" content="website" />
+  <link rel="canonical" href="https://loggingchance.github.io/freese/" />
+  <link rel="preconnect" href="https://unpkg.com" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+  <link rel="stylesheet" href="./styles.css" />
+  <script type="application/ld+json">
+  {
+    "@context":"https://schema.org",
+    "@type":"SoftwareApplication",
+    "name":"Freese Frame",
+    "alternateName":"The Elementary Forest Sampling App",
+    "applicationCategory":"ScientificApplication",
+    "operatingSystem":"Web browser",
+    "description":"Interactive forest sampling planning, mapping, analysis, and guidance based on Frank Freese's Elementary Forest Sampling.",
+    "isAccessibleForFree":true
+  }
+  </script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">FF</div>
+        <div>
+          <h1>Freese Frame</h1>
+          <p>The Elementary Forest Sampling App</p>
+        </div>
+      </div>
+
+      <nav class="nav" aria-label="Primary">
+        <button class="nav-item active" data-view="home">Home</button>
+        <button class="nav-item" data-view="plan">Plan a Sample</button>
+        <button class="nav-item" data-view="map">Map / Sample Layout</button>
+        <button class="nav-item" data-view="analyze">Analyze Data</button>
+        <button class="nav-item" data-view="compare">Compare Designs</button>
+        <button class="nav-item" data-view="guidance">Freese Guidance</button>
+        <button class="nav-item" data-view="about">Publication & Credit</button>
+      </nav>
+
+      <div class="sidebar-credit">
+        <span>Based on</span>
+        <strong>Frank Freese</strong>
+        <em>Elementary Forest Sampling</em>
+        <span>USDA Forest Service Agriculture Handbook No. 232</span>
+      </div>
+    </aside>
+
+    <main class="workspace">
+      <header class="topbar">
+        <div>
+          <span class="eyebrow">Freese Frame</span>
+          <h2 id="view-title">Forest sampling, from question to field layout.</h2>
+        </div>
+        <div class="top-actions">
+          <button id="save-project" class="button secondary">Save Project</button>
+          <label class="button secondary file-button">Open Project<input id="open-project" type="file" accept=".json,application/json" /></label>
+        </div>
+      </header>
+
+      <section id="view-home" class="view active">
+        <div class="hero">
+          <div>
+            <span class="tag gold">The Frank Freese Tribute App</span>
+            <h3>Design the sample. Lay it out. Analyze it. Understand it.</h3>
+            <p>Freese Frame turns the practical methods and guidance in Frank Freese's <em>Elementary Forest Sampling</em> into an intuitive desktop-browser workbench for foresters.</p>
+            <div class="hero-actions">
+              <button class="button primary jump" data-view="plan">Plan a Sample</button>
+              <button class="button secondary jump" data-view="map">Open the Map</button>
+            </div>
+          </div>
+          <div class="source-card">
+            <span class="source-label">Primary source</span>
+            <h4>Elementary Forest Sampling</h4>
+            <p>Frank Freese<br>Southern Forest Experiment Station<br>USDA Forest Service<br>Agriculture Handbook No. 232<br>December 1962</p>
+            <p class="small">Freese Frame distinguishes direct implementations of the handbook from modern computational additions.</p>
+          </div>
+        </div>
+
+        <div class="action-grid">
+          <button class="action-card jump" data-view="plan"><span>01</span><h4>Plan a Sample</h4><p>Start with the forestry question. Get a defensible design and sample-size target.</p></button>
+          <button class="action-card jump" data-view="map"><span>02</span><h4>Lay Out Plots</h4><p>Draw or import a tract, then generate random or systematic sample locations.</p></button>
+          <button class="action-card jump" data-view="analyze"><span>03</span><h4>Analyze Data</h4><p>Paste field observations and calculate estimates, uncertainty, and confidence limits.</p></button>
+          <button class="action-card jump" data-view="guidance"><span>04</span><h4>Freese Guidance</h4><p>Practical sampling advice, cautions, assumptions, and source context.</p></button>
+        </div>
+
+        <div class="principle-panel">
+          <div>
+            <span class="source-label">Design principle</span>
+            <h4>Start with the forestry problem, not the statistical method.</h4>
+          </div>
+          <p>The app keeps formulas available but out of the way. The normal workflow is <strong>Design → Map → Analyze</strong>.</p>
+        </div>
+      </section>
+
+      <section id="view-plan" class="view">
+        <div class="section-grid two-col">
+          <div class="panel">
+            <div class="panel-heading">
+              <div><span class="eyebrow">Plan a Sample</span><h3>Define the job</h3></div>
+              <span class="method-badge">Freese Method + Modern Implementation</span>
+            </div>
+
+            <div class="form-grid">
+              <label>What are you estimating?
+                <select id="estimate-type">
+                  <option value="continuous">Volume, basal area, or another continuous variable</option>
+                  <option value="proportion">A proportion or attribute</option>
+                  <option value="change">Change over time</option>
+                </select>
+              </label>
+
+              <label>Population size, N (sampling units)
+                <input id="population-size" type="number" min="0" step="1" value="1000" />
+                <small>For 1/10-acre plots on 100 acres, N = 1,000.</small>
+              </label>
+
+              <label>Expected mean
+                <input id="expected-mean" type="number" min="0" step="any" value="100" />
+              </label>
+
+              <label>Expected coefficient of variation (%)
+                <input id="expected-cv" type="number" min="0.1" step="any" value="50" />
+              </label>
+
+              <label>Desired precision (± % of mean)
+                <input id="desired-precision" type="number" min="0.1" max="100" step="any" value="10" />
+              </label>
+
+              <label>Confidence level
+                <select id="confidence-level">
+                  <option value="0.90">90%</option>
+                  <option value="0.95" selected>95%</option>
+                  <option value="0.99">99%</option>
+                </select>
+              </label>
+
+              <label>Population naturally divided into useful strata?
+                <select id="has-strata">
+                  <option value="no">No / not sure</option>
+                  <option value="yes">Yes</option>
+                </select>
+              </label>
+
+              <label>Is travel between sample locations expensive?
+                <select id="travel-expensive">
+                  <option value="no">No / ordinary</option>
+                  <option value="yes">Yes</option>
+                </select>
+              </label>
+            </div>
+
+            <button id="calculate-plan" class="button primary">Calculate Plan</button>
+          </div>
+
+          <aside class="guidance-panel">
+            <span class="source-label">Freese Guidance</span>
+            <h4>State the objective before doing field work.</h4>
+            <p>Define the parameter to be estimated and the precision desired. The population, sampling units, measurements, selection method, and analysis should be specified before data collection begins.</p>
+            <div class="citation">Frank Freese, <em>Elementary Forest Sampling</em>, “Design of Sample Surveys.”</div>
+          </aside>
+        </div>
+
+        <div id="plan-result" class="result-panel hidden">
+          <div>
+            <span class="eyebrow">Recommended sample</span>
+            <div class="big-result"><span id="recommended-n">—</span> <small>sampling units</small></div>
+            <p id="plan-summary"></p>
+          </div>
+          <div class="result-details">
+            <div><span>Expected SD</span><strong id="expected-sd">—</strong></div>
+            <div><span>Absolute precision</span><strong id="absolute-precision">—</strong></div>
+            <div><span>Confidence</span><strong id="result-confidence">—</strong></div>
+            <div><span>Suggested design</span><strong id="suggested-design">—</strong></div>
+          </div>
+          <button class="button primary jump" data-view="map">Lay Out This Sample on the Map</button>
+        </div>
+      </section>
+
+      <section id="view-map" class="view">
+        <div class="map-toolbar">
+          <div>
+            <span class="eyebrow">Map / Sample Layout</span>
+            <h3>Define the population and place the sample</h3>
+          </div>
+          <div class="toolbar-actions">
+            <label class="button secondary file-button">Import GeoJSON<input id="geojson-upload" type="file" accept=".json,.geojson,application/geo+json,application/json" /></label>
+            <button id="export-kml" class="button secondary">Export KML</button>
+            <button id="export-kmz" class="button secondary">Export KMZ</button>
+            <button id="export-csv" class="button secondary">Export CSV</button>
+          </div>
+        </div>
+
+        <div class="map-layout">
+          <div id="map" aria-label="Sampling map"></div>
+
+          <aside class="map-controls">
+            <span class="source-label">Sample layout</span>
+            <label>Design
+              <select id="map-design">
+                <option value="random">Simple random</option>
+                <option value="systematic">Systematic grid</option>
+              </select>
+            </label>
+            <label>Target number of plots
+              <input id="map-sample-count" type="number" min="1" step="1" value="30" />
+            </label>
+            <label>Grid bearing (systematic)
+              <input id="grid-bearing" type="number" min="0" max="179" step="1" value="0" />
+            </label>
+            <label>Edge buffer (feet)
+              <input id="edge-buffer" type="number" min="0" step="1" value="0" />
+            </label>
+            <label>Plot size
+              <select id="plot-size">
+                <option value="0">Centers only</option>
+                <option value="0.01">1/100 acre</option>
+                <option value="0.02">1/50 acre</option>
+                <option value="0.05">1/20 acre</option>
+                <option value="0.1" selected>1/10 acre</option>
+                <option value="0.2">1/5 acre</option>
+                <option value="0.25">1/4 acre</option>
+              </select>
+            </label>
+            <button id="generate-sample" class="button primary">Generate Sample</button>
+            <button id="clear-sample" class="button ghost">Clear Sample</button>
+
+            <div class="map-stats">
+              <div><span>Mapped area</span><strong id="mapped-acres">0 acres</strong></div>
+              <div><span>Generated plots</span><strong id="generated-count">0</strong></div>
+            </div>
+
+            <div class="mini-guidance">
+              <strong>Freese Guidance</strong>
+              <p>Do not casually move inconvenient points. Avoiding brush, openings, wet ground, or other difficult locations can introduce selection bias.</p>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section id="view-analyze" class="view">
+        <div class="section-grid two-col">
+          <div class="panel">
+            <div class="panel-heading">
+              <div><span class="eyebrow">Analyze Data</span><h3>Paste sample observations</h3></div>
+              <span class="method-badge">Freese Method</span>
+            </div>
+            <label>Observations
+              <textarea id="sample-values" rows="14" placeholder="Paste one value per line, or values separated by commas or spaces.">72 84 91 65 78 88 95 81 76 90</textarea>
+            </label>
+            <div class="form-grid compact">
+              <label>Population size, N
+                <input id="analysis-population" type="number" min="0" value="1000" />
+              </label>
+              <label>Confidence level
+                <select id="analysis-confidence">
+                  <option value="0.90">90%</option>
+                  <option value="0.95" selected>95%</option>
+                  <option value="0.99">99%</option>
+                </select>
+              </label>
+              <label>Expansion factor to per-acre
+                <input id="analysis-expansion" type="number" min="0.0001" step="any" value="1" />
+              </label>
+            </div>
+            <button id="analyze-values" class="button primary">Analyze Sample</button>
+          </div>
+
+          <aside class="guidance-panel">
+            <span class="source-label">Freese Guidance</span>
+            <h4>An estimate needs an indication of reliability.</h4>
+            <p>Freese emphasizes the importance of the standard error and confidence limits. Freese Frame therefore keeps uncertainty next to the estimate rather than treating it as an optional advanced statistic.</p>
+            <div class="citation">Frank Freese, <em>Elementary Forest Sampling</em>, “Standard Errors and Confidence Limits.”</div>
+          </aside>
+        </div>
+
+        <div id="analysis-results" class="stats-grid hidden">
+          <div class="stat-card"><span>Observations</span><strong id="stat-n">—</strong></div>
+          <div class="stat-card"><span>Mean</span><strong id="stat-mean">—</strong></div>
+          <div class="stat-card"><span>Std. deviation</span><strong id="stat-sd">—</strong></div>
+          <div class="stat-card"><span>Coefficient of variation</span><strong id="stat-cv">—</strong></div>
+          <div class="stat-card"><span>Standard error</span><strong id="stat-se">—</strong></div>
+          <div class="stat-card highlight"><span>Confidence interval</span><strong id="stat-ci">—</strong></div>
+          <div class="stat-card"><span>Expanded mean</span><strong id="stat-expanded">—</strong></div>
+          <div class="stat-card"><span>Expanded standard error</span><strong id="stat-expanded-se">—</strong></div>
+        </div>
+      </section>
+
+      <section id="view-compare" class="view">
+        <div class="empty-state">
+          <span class="tag">Next build layer</span>
+          <h3>Compare Sampling Designs</h3>
+          <p>This workspace is reserved for side-by-side cost/precision comparisons: plot size, stratified allocation, one-stage vs. two-stage sampling, and primary/secondary sampling cost tradeoffs.</p>
+          <p class="small">The interface is in place now; the comparison engines will be added method-by-method from the Freese source.</p>
+        </div>
+      </section>
+
+      <section id="view-guidance" class="view">
+        <div class="content-header">
+          <span class="eyebrow">Freese Guidance</span>
+          <h3>Practical questions, answered from the handbook</h3>
+          <p>Guidance is organized around field decisions rather than chapter headings.</p>
+        </div>
+        <div class="guidance-grid">
+          <details open><summary>When should I stratify?</summary><p>When the population can be divided into meaningful groups whose units are more similar within groups than across the population. The sizes or relative sizes of the strata should be known independently of the observations used to estimate their means.</p></details>
+          <details><summary>Why does the confidence interval matter?</summary><p>A sample estimate by itself does not show how much sampling variation to expect. Standard error and confidence limits provide the practical indication of reliability that should accompany the estimate.</p></details>
+          <details><summary>When is systematic sampling risky?</summary><p>Systematic layouts are operationally attractive and common in forestry, but error estimation can be misleading if the population contains spatial patterns related to the grid. Freese discusses both the practical appeal and the statistical caution.</p></details>
+          <details><summary>Should I move an inconvenient plot?</summary><p>Not casually. Selection and field-location procedures should prevent crews from favoring easy terrain or vegetation. A moved or excluded point should be documented, and the replacement process should preserve the sampling design.</p></details>
+          <details><summary>When does two-stage sampling make sense?</summary><p>When locating a sampling area is expensive but taking additional observations once there is relatively inexpensive. The number of primary locations and secondary observations can then be optimized using information about cost and variability.</p></details>
+          <details><summary>Permanent or temporary plots for estimating change?</summary><p>The choice depends strongly on the correlation expected between initial and later measurements. High positive correlation favors permanent plots; low correlation, major cutting, mortality, or long intervals may reduce that advantage.</p></details>
+        </div>
+      </section>
+
+      <section id="view-about" class="view">
+        <div class="publication-layout">
+          <article class="panel prose">
+            <span class="eyebrow">Publication & Credit</span>
+            <h3>Frank Freese is the foundation of Freese Frame.</h3>
+            <p><em>Elementary Forest Sampling</em> was written by Frank Freese of the Southern Forest Experiment Station, USDA Forest Service, and published as Agriculture Handbook No. 232 in December 1962. The handbook was reviewed and approved for reprinting in 1976.</p>
+            <p>Freese described the work as a practical statistical cookbook for foresters. Freese Frame carries that practical objective into an interactive browser application: design a survey, determine the necessary sample, lay it out spatially, bring the data back, and evaluate the estimate and its reliability.</p>
+
+            <h4>How attribution works</h4>
+            <dl class="label-list">
+              <div><dt>Freese Method</dt><dd>A direct or essentially direct implementation of a method presented in the handbook.</dd></div>
+              <div><dt>Freese Guidance</dt><dd>Advice, cautions, assumptions, or explanations derived from the handbook.</dd></div>
+              <div><dt>Modern Implementation</dt><dd>Automation, modern numerical computation, GIS functionality, interface design, or extensions not presented by Freese.</dd></div>
+            </dl>
+
+            <h4>Full source</h4>
+            <p>Freese, Frank. 1962. <em>Elementary Forest Sampling</em>. Agriculture Handbook No. 232. U.S. Department of Agriculture, Forest Service, Southern Forest Experiment Station.</p>
+          </article>
+          <aside class="source-card large">
+            <span class="source-label">App identity</span>
+            <h4>Freese Frame</h4>
+            <p><strong>The Elementary Forest Sampling App</strong></p>
+            <p>The Frank Freese Tribute App</p>
+            <hr>
+            <p class="small">This application is an independent interactive implementation based on the publication. It does not imply endorsement by Frank Freese, USDA, or the U.S. Forest Service.</p>
+          </aside>
+        </div>
+      </section>
+
+      <footer class="footer">
+        <span>Freese Frame</span>
+        <span>Based on Frank Freese, <em>Elementary Forest Sampling</em>, USDA Forest Service Agriculture Handbook No. 232.</span>
+      </footer>
+    </main>
+  </div>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+  <script src="https://unpkg.com/@turf/turf@7.2.0/turf.min.js"></script>
+  <script src="https://unpkg.com/jstat@1.9.6/dist/jstat.min.js"></script>
+  <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
