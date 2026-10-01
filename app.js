@@ -919,27 +919,117 @@
     try{await exportSadlerPdf();}catch(_){}
   });
 
+  async function buildSadlerTextImageBlob() {
+    initMap();
+    if(!state.boundary) throw new Error("boundary");
+    if(!window.html2canvas) throw new Error("library");
+
+    map.invalidateSize();
+    await new Promise(resolve=>setTimeout(resolve,250));
+
+    const mapEl=$("map");
+    const captured=await html2canvas(mapEl,{
+      useCORS:true,
+      allowTaint:false,
+      backgroundColor:"#f5f3ec",
+      scale:2,
+      logging:false
+    });
+
+    const W=1080, H=1350;
+    const canvas=document.createElement("canvas");
+    canvas.width=W; canvas.height=H;
+    const ctx=canvas.getContext("2d");
+
+    ctx.fillStyle="#f5f3ec";
+    ctx.fillRect(0,0,W,H);
+
+    // Header
+    ctx.fillStyle="#23452F";
+    ctx.fillRect(0,0,W,150);
+    ctx.fillStyle="#ffffff";
+    ctx.font="700 54px system-ui, -apple-system, Segoe UI, sans-serif";
+    ctx.fillText("Sadler Map",56,72);
+    ctx.font="500 28px system-ui, -apple-system, Segoe UI, sans-serif";
+    const design=state.sampleDesign==="systematic"?"Systematic grid":"Simple random";
+    const count=state.sample?.features?.length || 0;
+    ctx.fillText("Freese Frame  •  "+design+"  •  "+count+" plots",56,116);
+
+    // Map image fitted to a large phone-friendly window.
+    const box={x:40,y:180,w:1000,h:970};
+    const scale=Math.max(box.w/captured.width,box.h/captured.height);
+    const sw=box.w/scale, sh=box.h/scale;
+    const sx=(captured.width-sw)/2, sy=(captured.height-sh)/2;
+    ctx.drawImage(captured,sx,sy,sw,sh,box.x,box.y,box.w,box.h);
+
+    // Border and north arrow.
+    ctx.strokeStyle="#23452F";
+    ctx.lineWidth=5;
+    ctx.strokeRect(box.x,box.y,box.w,box.h);
+
+    ctx.fillStyle="rgba(255,255,255,.9)";
+    ctx.fillRect(900,205,92,110);
+    ctx.fillStyle="#23452F";
+    ctx.font="700 30px system-ui, sans-serif";
+    ctx.textAlign="center";
+    ctx.fillText("N",946,242);
+    ctx.beginPath();
+    ctx.moveTo(946,258);
+    ctx.lineTo(930,294);
+    ctx.lineTo(946,284);
+    ctx.lineTo(962,294);
+    ctx.closePath();
+    ctx.fill();
+    ctx.textAlign="left";
+
+    // Footer
+    const acres=state.boundary ? turf.area(state.boundary)/4046.8564224 : 0;
+    ctx.fillStyle="#ffffff";
+    ctx.fillRect(40,1180,1000,130);
+    ctx.strokeStyle="#d9d8d1";
+    ctx.lineWidth=2;
+    ctx.strokeRect(40,1180,1000,130);
+
+    ctx.fillStyle="#232824";
+    ctx.font="700 30px system-ui, sans-serif";
+    ctx.fillText(fmt(acres,2)+" mapped acres",66,1228);
+    ctx.font="500 23px system-ui, sans-serif";
+    ctx.fillText("Plot centers shown by pink flamingos.",66,1268);
+    ctx.fillStyle="#795B3A";
+    ctx.font="600 20px system-ui, sans-serif";
+    ctx.fillText("Based on Frank Freese, Elementary Forest Sampling",66,1302);
+
+    return new Promise((resolve,reject)=>{
+      canvas.toBlob(blob=>{
+        if(blob) resolve(blob);
+        else reject(new Error("image"));
+      },"image/jpeg",0.84);
+    });
+  }
+
   $("text-sadler-pdf")?.addEventListener("click",async()=>{
     try {
-      const blob=await buildSadlerPdfBlob();
-      const file=new File([blob],"Sadler-PDF-Map.pdf",{type:"application/pdf"});
+      const blob=await buildSadlerTextImageBlob();
+      const file=new File([blob],"Sadler-Map.jpg",{type:"image/jpeg"});
+
       if(navigator.canShare && navigator.share && navigator.canShare({files:[file]})) {
         await navigator.share({
-          title:"Sadler PDF Map",
-          text:"Freese Frame Sadler PDF Map",
+          title:"Sadler Map",
+          text:"Freese Frame Sadler map for field use",
           files:[file]
         });
-        toast("Sadler PDF Map opened in your device sharing options.");
+        toast("Phone-optimized Sadler map opened in your sharing options.");
         return;
       }
-      downloadBlob(blob,"Sadler-PDF-Map.pdf");
-      const body=encodeURIComponent("Sadler PDF Map from Freese Frame — the PDF has been downloaded to this device for attachment.");
+
+      downloadBlob(blob,"Sadler-Map.jpg");
+      const body=encodeURIComponent("Sadler map from Freese Frame — the phone-friendly map image has been downloaded to this device for attachment.");
       window.location.href="sms:?&body="+body;
-      toast("PDF downloaded. Attach Sadler-PDF-Map.pdf to the text message.");
+      toast("Sadler-Map.jpg downloaded. Attach it to the text message.");
     } catch(err) {
       if(err && err.name==="AbortError") return;
-      if(err.message==="boundary") toast("Draw or import a tract boundary before sharing a Sadler PDF Map.");
-      else toast("Could not prepare the Sadler PDF Map for texting.");
+      if(err.message==="boundary") toast("Draw or import a tract boundary before sharing a Sadler map.");
+      else toast("Could not prepare the phone-friendly Sadler map.");
     }
   });
 
