@@ -565,11 +565,11 @@
       f.properties={...f.properties,plot_id:i+1,design,plot_acres:acres};
       const [lng,lat]=f.geometry.coordinates;
       const flamingoIcon=L.divIcon({
-        className:"flamingo-marker-wrap",
-        html:'<div class="flamingo-marker" aria-label="Plot '+(i+1)+'"><span class="flamingo-emoji">🦩</span><span class="flamingo-number">'+(i+1)+'</span></div>',
-        iconSize:[34,42],
-        iconAnchor:[17,36],
-        popupAnchor:[0,-34]
+        className:"fleur-marker-wrap",
+        html:'<div class="fleur-marker" aria-label="Plot '+(i+1)+'"><span class="fleur-symbol">⚜</span><span class="fleur-number">'+(i+1)+'</span></div>',
+        iconSize:[30,34],
+        iconAnchor:[15,28],
+        popupAnchor:[0,-28]
       });
       sampleLayer.addLayer(
         L.marker([lat,lng],{icon:flamingoIcon})
