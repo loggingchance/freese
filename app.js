@@ -184,40 +184,72 @@
     return alloc;
   }
 
-  function estimateStratifiedPlan() {
-    const rows = parseStrata();
-    const D = +$("stratified-d").value;
-    const method = $("stratified-allocation").value;
-    if (!rows || !(D>0)) return null;
-
-    const N = rows.reduce((s,r)=>s+r.N,0);
-    const sumNVar = rows.reduce((s,r)=>s+r.N*r.sd*r.sd,0);
-    let numerator, weightFn, label;
-
-    if (method === "proportional") {
-      numerator = N * sumNVar;
-      weightFn = r => r.N;
-      label = "Stratified random — proportional allocation";
-    } else if (method === "optimum") {
-      const sumNSd = rows.reduce((s,r)=>s+r.N*r.sd,0);
-      numerator = sumNSd*sumNSd;
-      weightFn = r => r.N*r.sd;
-      label = "Stratified random — optimum allocation";
-    } else {
-      const a = rows.reduce((s,r)=>s+r.N*r.sd*Math.sqrt(r.cost),0);
-      const b = rows.reduce((s,r)=>s+r.N*r.sd/Math.sqrt(r.cost),0);
-      numerator = a*b;
-      weightFn = r => r.N*r.sd/Math.sqrt(r.cost);
-      label = "Stratified random — optimum allocation with varying costs";
+  function stratifiedSize(rows, D, method, populationN) {
+    const sumNVar=rows.reduce((sum,r)=>sum+r.N*r.sd*r.sd,0);
+    if(method==="proportional") return Math.ceil((populationN*sumNVar)/(populationN*populationN*D*D+sumNVar));
+    if(method==="optimum") {
+      const a=rows.reduce((sum,r)=>sum+r.N*r.sd,0);
+      return Math.ceil((a*a)/(populationN*populationN*D*D+sumNVar));
     }
+    const a=rows.reduce((sum,r)=>sum+r.N*r.sd*Math.sqrt(r.cost),0);
+    const b=rows.reduce((sum,r)=>sum+r.N*r.sd/Math.sqrt(r.cost),0);
+    return Math.ceil((a*b)/(populationN*populationN*D*D+sumNVar));
+  }
 
-    const n = Math.ceil(numerator/(N*N*D*D + sumNVar));
-    const alloc = allocateIntegers(rows,n,weightFn);
+  function stratifiedWeights(rows,method) {
+    if(method==="proportional") return rows.map(r=>r.N);
+    if(method==="optimum") return rows.map(r=>r.N*r.sd);
+    return rows.map(r=>r.N*r.sd/Math.sqrt(r.cost));
+  }
+
+  function allocateStratifiedFreese(rows,D,method) {
+    const populationN=rows.reduce((sum,r)=>sum+r.N,0);
+    let active=rows.map((r,i)=>({...r,originalIndex:i}));
+    const final=new Array(rows.length).fill(0);
+    let censusCount=0;
+
+    for(let guard=0;guard<rows.length+2 && active.length;guard++) {
+      const nActive=stratifiedSize(active,D,method,populationN);
+      const weights=stratifiedWeights(active,method);
+      const wsum=weights.reduce((a,b)=>a+b,0);
+      const raw=weights.map(w=>nActive*w/wsum);
+      const offenders=active.filter((r,i)=>raw[i]>=r.N);
+
+      if(!offenders.length) {
+        const temp=active.map((r,i)=>({r,raw:raw[i]}));
+        temp.forEach(x=>final[x.r.originalIndex]=Math.floor(x.raw));
+        let left=nActive-temp.reduce((sum,x)=>sum+Math.floor(x.raw),0);
+        temp.sort((a,b)=>(b.raw-Math.floor(b.raw))-(a.raw-Math.floor(a.raw)));
+        for(let i=0;i<temp.length && left>0;i++) {
+          const idx=temp[i].r.originalIndex;
+          if(final[idx]<rows[idx].N){final[idx]++;left--;}
+        }
+        return {alloc:final,total:final.reduce((a,b)=>a+b,0),censusCount};
+      }
+
+      const offenderIds=new Set(offenders.map(r=>r.originalIndex));
+      offenders.forEach(r=>{final[r.originalIndex]=r.N;censusCount+=r.N;});
+      active=active.filter(r=>!offenderIds.has(r.originalIndex));
+    }
+    return {alloc:final,total:final.reduce((a,b)=>a+b,0),censusCount};
+  }
+
+  function estimateStratifiedPlan() {
+    const rows=parseStrata();
+    const D=+$("stratified-d").value;
+    const method=$("stratified-allocation").value;
+    if(!rows || !(D>0)) return null;
+
+    const allocation=allocateStratifiedFreese(rows,D,method);
+    const labels={
+      proportional:"Stratified random — proportional allocation",
+      optimum:"Stratified random — optimum allocation",
+      "optimum-cost":"Stratified random — optimum allocation with varying costs"
+    };
     return {
-      n, sd:NaN, E:D, confidence:NaN, design:label, rows, alloc,
-      summary:"Calculated from Freese's stratified-random-sampling sample-size equation for the selected allocation method.",
-      unitLabel:"total observations",
-      confidenceLabel:"SE target " + fmt(D,3)
+      n:allocation.total,sd:NaN,E:D,confidence:NaN,design:labels[method],rows,alloc:allocation.alloc,
+      summary:"Calculated from Freese's stratified-random-sampling sample-size equation. If an allocation reaches a stratum's full size, that stratum is censused and the remaining allocation is recomputed as Freese directs.",
+      unitLabel:"total observations",confidenceLabel:"SE target "+fmt(D,3)
     };
   }
 
@@ -552,7 +584,21 @@
     if(!poly) return;
     const count=Math.max(1,Math.round(+$("map-sample-count").value||0));
     const design=$("map-design").value;
-    const fc=design==="random" ? randomPointsInPolygon(poly,count) : systematicPoints(poly,count,+$("grid-bearing").value||0);
+    let fc;
+    if(state.lastPlan?.rows) {
+      if(!state.strata || state.strata.features.length!==state.lastPlan.rows.length) {
+        return toast("This is a stratified plan. Import one polygon per stratum, in the same order as the planning table, before generating locations.");
+      }
+      const features=[];
+      state.strata.features.forEach((stratum,i)=>{
+        const ni=state.lastPlan.alloc[i];
+        const part=design==="random" ? randomPointsInPolygon(stratum,ni) : systematicPoints(stratum,ni,+$("grid-bearing").value||0);
+        part.features.forEach(p=>{p.properties={...p.properties,stratum:state.lastPlan.rows[i].name};features.push(p);});
+      });
+      fc=turf.featureCollection(features);
+    } else {
+      fc=design==="random" ? randomPointsInPolygon(poly,count) : systematicPoints(poly,count,+$("grid-bearing").value||0);
+    }
     if(!fc.features.length) return toast("No sample locations could be generated with those settings.");
     state.sample=fc; state.sampleDesign=design; renderSample(fc,design);
     toast("Generated "+fc.features.length+" sample locations.");
@@ -592,35 +638,49 @@
       const zip=await JSZip.loadAsync(await file.arrayBuffer());
       const name=Object.keys(zip.files).find(n=>n.toLowerCase().endsWith(".kml"));
       if(!name) throw new Error("No KML in KMZ");
-      return kmlToGeoJSON(await zip.files[name].async("text"));
+      const feature=kmlToGeoJSON(await zip.files[name].async("text"));
+      const strata=feature.geometry.type==="MultiPolygon"
+        ? turf.featureCollection(feature.geometry.coordinates.map((c,i)=>turf.polygon(c,{name:"Stratum "+(i+1)})))
+        : null;
+      return {boundary:feature,strata};
     }
     const text=await file.text();
-    if(ext==="kml") return kmlToGeoJSON(text);
+    if(ext==="kml") {
+      const feature=kmlToGeoJSON(text);
+      const strata=feature.geometry.type==="MultiPolygon"
+        ? turf.featureCollection(feature.geometry.coordinates.map((c,i)=>turf.polygon(c,{name:"Stratum "+(i+1)})))
+        : null;
+      return {boundary:feature,strata};
+    }
     const json=JSON.parse(text);
     if(json.type==="FeatureCollection") {
       const polys=json.features.filter(f=>f.geometry && /Polygon/.test(f.geometry.type));
       if(!polys.length) throw new Error("No polygon");
-      if(polys.length===1) return polys[0];
-      const mp=[];
-      for(const f of polys) {
-        if(f.geometry.type==="Polygon") mp.push(f.geometry.coordinates);
-        else mp.push(...f.geometry.coordinates);
-      }
-      return turf.multiPolygon(mp,{source:"GeoJSON"});
+      const strata=turf.featureCollection(polys.flatMap(f=>{
+        if(f.geometry.type==="Polygon") return [f];
+        return f.geometry.coordinates.map((c,i)=>turf.polygon(c,{...(f.properties||{}),part:i+1}));
+      }));
+      if(strata.features.length===1) return {boundary:strata.features[0],strata:null};
+      return {boundary:turf.multiPolygon(strata.features.map(f=>f.geometry.coordinates),{source:"GeoJSON"}),strata};
     }
     if(!json.geometry || !/Polygon/.test(json.geometry.type)) throw new Error("No polygon");
-    return json;
+    const strata=json.geometry.type==="MultiPolygon"
+      ? turf.featureCollection(json.geometry.coordinates.map((c,i)=>turf.polygon(c,{name:"Stratum "+(i+1)})))
+      : null;
+    return {boundary:json,strata};
   }
 
   $("boundary-upload").addEventListener("change",async e=>{
     initMap();
     const file=e.target.files[0]; if(!file) return;
     try {
-      const feature=await loadBoundaryFile(file);
+      const loaded=await loadBoundaryFile(file);
       drawnItems.clearLayers();
-      const group=L.geoJSON(feature);
+      const group=L.geoJSON(loaded.boundary);
       group.eachLayer(layer=>drawnItems.addLayer(layer));
-      state.boundary=feature; updateArea(); clearSample();
+      state.boundary=loaded.boundary;
+      state.strata=loaded.strata;
+      updateArea(); clearSample();
       map.fitBounds(group.getBounds(),{padding:[20,20]});
       toast("Boundary imported from "+file.name+".");
     } catch(err) {
@@ -652,6 +712,10 @@
     if(!state.boundary) throw new Error("No boundary");
     const marks=[];
     marks.push("<Placemark><name>Tract Boundary</name><Style><LineStyle><color>ff2f4523</color><width>3</width></LineStyle><PolyStyle><color>332f4523</color></PolyStyle></Style>"+geometryToKml(state.boundary.geometry)+"</Placemark>");
+    if(state.strata) state.strata.features.forEach((f,i)=>{
+      const name=state.lastPlan?.rows?.[i]?.name || f.properties?.name || ("Stratum "+(i+1));
+      marks.push("<Placemark><name>"+escapeXml(name)+"</name><Style><LineStyle><width>2</width></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>"+geometryToKml(f.geometry)+"</Placemark>");
+    });
 
     const plotAcres=+$("plot-size").value||0;
     if(state.sample) state.sample.features.forEach((f,i)=>{
@@ -708,7 +772,7 @@
         strataInput:$("strata-input").value,stratifiedAllocation:$("stratified-allocation").value,stratifiedD:+$("stratified-d").value||0,
         twoStage:{N:+$("two-n-primary").value||0,M:+$("two-m-total").value||0,varBetween:+$("two-var-between").value||0,varWithin:+$("two-var-within").value||0,cp:+$("two-cost-primary").value||0,cs:+$("two-cost-secondary").value||0,D:+$("two-d").value||0}
       },
-      map:{boundary:state.boundary,sample:state.sample,design:$("map-design").value,target:+$("map-sample-count").value||0,bearing:+$("grid-bearing").value||0,edgeBufferFeet:+$("edge-buffer").value||0,bufferAcknowledged:$("buffer-ack").checked,plotSizeAcres:+$("plot-size").value||0},
+      map:{boundary:state.boundary,strata:state.strata,sample:state.sample,design:$("map-design").value,target:+$("map-sample-count").value||0,bearing:+$("grid-bearing").value||0,edgeBufferFeet:+$("edge-buffer").value||0,bufferAcknowledged:$("buffer-ack").checked,plotSizeAcres:+$("plot-size").value||0},
       analysis:{type:$("analysis-type").value,values:$("sample-values").value,population:+$("analysis-population").value||0,confidence:+$("analysis-confidence").value,expansion:+$("analysis-expansion").value||1,successes:+$("analysis-successes").value||0,trials:+$("analysis-trials").value||0}
     };
   }
@@ -751,7 +815,7 @@
       if(p.map){
         $("map-design").value=p.map.design||"random";$("map-sample-count").value=p.map.target||30;$("grid-bearing").value=p.map.bearing||0;
         $("edge-buffer").value=p.map.edgeBufferFeet||0;$("buffer-ack").checked=!!p.map.bufferAcknowledged;$("plot-size").value=p.map.plotSizeAcres??.1;
-        state.boundary=p.map.boundary||null;state.sample=p.map.sample||null;state.sampleDesign=p.map.design||"random";
+        state.boundary=p.map.boundary||null;state.strata=p.map.strata||null;state.sample=p.map.sample||null;state.sampleDesign=p.map.design||"random";
         showView("map");initMap();drawnItems.clearLayers();
         if(state.boundary){
           const group=L.geoJSON(state.boundary);group.eachLayer(layer=>drawnItems.addLayer(layer));map.fitBounds(group.getBounds(),{padding:[20,20]});
