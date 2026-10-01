@@ -200,10 +200,6 @@ input:focus, select:focus, textarea:focus { border-color: var(--forest); box-sha
 code { background: rgba(35,69,47,.07); padding: 1px 4px; border-radius: 4px; }
 
 
-.flamingo-marker-wrap { background: transparent !important; border: 0 !important; }
-.flamingo-marker { position: relative; width: 34px; height: 42px; display: flex; align-items: flex-start; justify-content: center; filter: drop-shadow(0 2px 2px rgba(0,0,0,.35)); }
-.flamingo-emoji { font-size: 30px; line-height: 32px; transform: translateY(-1px); }
-.flamingo-number { position: absolute; right: -2px; bottom: 0; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; display: grid; place-items: center; background: #ffffff; color: #232824; border: 1px solid #232824; font-size: 9px; font-weight: 800; line-height: 1; }
 
 
 /* Visual system refresh — field-map/editorial direction */
@@ -415,24 +411,45 @@ body {
   color: #173f2c !important;
 }
 
-.flamingo-marker {
-  filter: drop-shadow(0 2px 3px rgba(0,0,0,.42));
-}
-.flamingo-emoji {
-  font-size: 32px;
-}
-.flamingo-number {
-  right: -4px;
-  bottom: -1px;
-  min-width: 19px;
-  height: 19px;
-  background: #fffdf7;
-  border: 1.5px solid #173f2c;
-  color: #173f2c;
-  box-shadow: 0 1px 4px rgba(0,0,0,.18);
-}
 
 @media (max-width:1050px) {
   .topbar { margin: 0 -22px; padding: 0 22px; }
   .map-layout { grid-template-columns: 1fr; }
+}
+
+
+.fleur-marker-wrap { background: transparent !important; border: 0 !important; }
+.fleur-marker {
+  position: relative;
+  width: 30px;
+  height: 34px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  filter: drop-shadow(0 2px 2px rgba(0,0,0,.38));
+}
+.fleur-symbol {
+  color: #c7a24a;
+  font-size: 25px;
+  line-height: 27px;
+  font-family: Georgia, "Times New Roman", serif;
+  text-shadow: 0 0 1px #173f2c, 0 1px 2px rgba(0,0,0,.25);
+}
+.fleur-number {
+  position: absolute;
+  right: -3px;
+  bottom: -1px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  background: #fffdf7;
+  color: #173f2c;
+  border: 1.5px solid #173f2c;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 1px 4px rgba(0,0,0,.18);
 }
