@@ -184,3 +184,17 @@ input:focus, select:focus, textarea:focus { border-color: var(--forest); box-sha
   .action-grid, .form-grid, .guidance-grid, .stats-grid, .principle-panel, .result-panel { grid-template-columns: 1fr; }
   .map-toolbar { align-items: flex-start; flex-direction: column; }
 }
+
+
+.method-fields { margin: 18px 0; padding: 16px; background: var(--paper); border: 1px solid var(--line); border-radius: 12px; }
+.method-fields h4 { margin: 0 0 12px; color: var(--forest); }
+.method-note { margin: 6px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.check-row { grid-template-columns: 18px 1fr; align-items: start; gap: 8px; font-weight: 600; }
+.check-row input { width: auto; margin-top: 2px; }
+.warning-box { margin: 14px 0; padding: 14px; border-radius: 10px; background: #f4e5e1; border-left: 4px solid var(--red); color: #5b332d; }
+.warning-box p { margin: 5px 0 0; font-size: 13px; line-height: 1.5; }
+.allocation-output { margin-top: 12px; padding: 12px; background: var(--sage); border-radius: 9px; font-size: 13px; line-height: 1.55; }
+.allocation-output table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+.allocation-output th, .allocation-output td { padding: 6px 7px; border-bottom: 1px solid rgba(35,69,47,.12); text-align: left; }
+.allocation-output th { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+code { background: rgba(35,69,47,.07); padding: 1px 4px; border-radius: 4px; }
