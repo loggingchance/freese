@@ -994,7 +994,7 @@
     ctx.font="700 30px system-ui, sans-serif";
     ctx.fillText(fmt(acres,2)+" mapped acres",66,1228);
     ctx.font="500 23px system-ui, sans-serif";
-    ctx.fillText("Plot centers shown by pink flamingos.",66,1268);
+    ctx.fillText("Plot centers shown by fleur-de-lis markers.",66,1268);
     ctx.fillStyle="#795B3A";
     ctx.font="600 20px system-ui, sans-serif";
     ctx.fillText("Based on Frank Freese, Elementary Forest Sampling",66,1302);
