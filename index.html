@@ -9,6 +9,18 @@
   <meta property="og:title" content="Freese Frame" />
   <meta property="og:description" content="The Elementary Forest Sampling App — interactive tools and guidance based on Frank Freese's classic USDA Forest Service handbook." />
   <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Freese Frame" />
+  <meta property="og:url" content="https://loggingchance.github.io/freese/" />
+  <meta property="og:image" content="https://loggingchance.github.io/freese/og-image.png" />
+  <meta property="og:image:secure_url" content="https://loggingchance.github.io/freese/og-image.png" />
+  <meta property="og:image:type" content="image/png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Freese Frame forest sampling app with a mapped tract and pink flamingo sample plot markers." />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Freese Frame — The Elementary Forest Sampling App" />
+  <meta name="twitter:description" content="Sampling design, plot layout, analysis, and Sadler PDF Maps based on Frank Freese's Elementary Forest Sampling." />
+  <meta name="twitter:image" content="https://loggingchance.github.io/freese/og-image.png" />
   <link rel="canonical" href="https://loggingchance.github.io/freese/" />
   <link rel="preconnect" href="https://unpkg.com" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -271,11 +283,6 @@ Upland hardwood,340,110,1</textarea>
           </div>
           <div class="toolbar-actions">
             <label class="button secondary file-button">Import Boundary<input id="boundary-upload" type="file" accept=".json,.geojson,.kml,.kmz,application/geo+json,application/json,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz" /></label>
-            <button id="export-sadler-pdf" class="button primary">Export Sadler PDF Map</button>
-            <button id="text-sadler-pdf" class="button secondary">Text Sadler Map</button>
-            <button id="export-kml" class="button secondary">Export KML</button>
-            <button id="export-kmz" class="button secondary">Export KMZ</button>
-            <button id="export-csv" class="button secondary">Export CSV</button>
           </div>
         </div>
 
@@ -318,6 +325,17 @@ Upland hardwood,340,110,1</textarea>
               <div><span>Mapped area</span><strong id="mapped-acres">0 acres</strong></div>
               <div><span>Generated plots</span><strong id="generated-count">0</strong></div>
               <div><span>Layout note</span><strong id="layout-note">—</strong></div>
+            </div>
+
+            <div class="map-export-group">
+              <span class="source-label">Field map & share</span>
+              <button id="export-sadler-pdf" class="button primary sadler-pdf-button">Export Sadler PDF Map <small>Georeferenced PDF for field use</small></button>
+              <button id="text-sadler-pdf" class="button sadler-text-button">Text Sadler Map <small>Phone-ready JPEG preview</small></button>
+              <div class="map-export-minor">
+                <button id="export-kml" class="button secondary">KML</button>
+                <button id="export-kmz" class="button secondary">KMZ</button>
+                <button id="export-csv" class="button secondary">CSV</button>
+              </div>
             </div>
 
             <div class="mini-guidance">
