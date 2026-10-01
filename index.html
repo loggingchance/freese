@@ -125,15 +125,15 @@
                 <small>For 1/10-acre plots on 100 acres, N = 1,000.</small>
               </label>
 
-              <label>Expected mean
+              <label id="mean-field">Expected mean
                 <input id="expected-mean" type="number" min="0" step="any" value="100" />
               </label>
 
-              <label>Expected coefficient of variation (%)
+              <label id="cv-field">Expected coefficient of variation (%)
                 <input id="expected-cv" type="number" min="0.1" step="any" value="50" />
               </label>
 
-              <label>Desired precision (± % of mean)
+              <label id="precision-field">Desired precision (± % of mean)
                 <input id="desired-precision" type="number" min="0.1" max="100" step="any" value="10" />
               </label>
 
@@ -160,6 +160,81 @@
               </label>
             </div>
 
+            <div id="proportion-fields" class="method-fields hidden">
+              <h4>Proportion / attribute inputs</h4>
+              <div class="form-grid compact">
+                <label>Expected proportion (%)
+                  <input id="expected-proportion" type="number" min="0.1" max="99.9" step="any" value="40" />
+                </label>
+                <label>Desired precision (± percentage points)
+                  <input id="proportion-precision" type="number" min="0.1" max="50" step="any" value="5" />
+                </label>
+              </div>
+              <p class="method-note">Freese gives large-sample planning equations for 95% and 99% confidence. A 90% selection is calculated as a clearly labeled modern extension.</p>
+            </div>
+
+            <div id="change-fields" class="method-fields hidden">
+              <h4>Change-over-time inputs</h4>
+              <div class="form-grid compact">
+                <label>Expected SD of plot differences
+                  <input id="change-sd" type="number" min="0.0001" step="any" value="20" />
+                </label>
+                <label>Desired absolute precision of mean change
+                  <input id="change-precision" type="number" min="0.0001" step="any" value="5" />
+                </label>
+              </div>
+              <p class="method-note">Modern implementation of Freese's guidance to analyze permanent-plot change as the individual difference variable.</p>
+            </div>
+
+            <div id="stratified-fields" class="method-fields hidden">
+              <h4>Stratified random sampling</h4>
+              <div class="form-grid compact">
+                <label>Allocation method
+                  <select id="stratified-allocation">
+                    <option value="proportional">Proportional</option>
+                    <option value="optimum">Optimum — equal unit costs</option>
+                    <option value="optimum-cost">Optimum — varying unit costs</option>
+                  </select>
+                </label>
+                <label>Desired standard error, D
+                  <input id="stratified-d" type="number" min="0.0001" step="any" value="5" />
+                </label>
+              </div>
+              <label>Strata: one line each as <code>name, N, SD, cost</code>
+                <textarea id="strata-input" rows="5">Pine,320,90,1
+Bottomland hardwood,140,125,1
+Upland hardwood,340,110,1</textarea>
+                <small>Cost is only used for optimum allocation with varying sampling costs.</small>
+              </label>
+            </div>
+
+            <div id="two-stage-fields" class="method-fields hidden">
+              <h4>Two-stage sampling</h4>
+              <div class="form-grid compact">
+                <label>Total primary units, N
+                  <input id="two-n-primary" type="number" min="1" step="1" value="1000" />
+                </label>
+                <label>Secondaries per primary, M
+                  <input id="two-m-total" type="number" min="1" step="1" value="100" />
+                </label>
+                <label>Between-primary variance, σI²
+                  <input id="two-var-between" type="number" min="0.0001" step="any" value="366.8036" />
+                </label>
+                <label>Within-primary variance, σII²
+                  <input id="two-var-within" type="number" min="0.0001" step="any" value="248.25" />
+                </label>
+                <label>Cost per primary, cₚ
+                  <input id="two-cost-primary" type="number" min="0.0001" step="any" value="14" />
+                </label>
+                <label>Cost per secondary, cₛ
+                  <input id="two-cost-secondary" type="number" min="0.0001" step="any" value="1.2" />
+                </label>
+                <label>Desired standard error, D
+                  <input id="two-d" type="number" min="0.0001" step="any" value="4.8" />
+                </label>
+              </div>
+            </div>
+
             <button id="calculate-plan" class="button primary">Calculate Plan</button>
           </div>
 
@@ -174,13 +249,14 @@
         <div id="plan-result" class="result-panel hidden">
           <div>
             <span class="eyebrow">Recommended sample</span>
-            <div class="big-result"><span id="recommended-n">—</span> <small>sampling units</small></div>
+            <div class="big-result"><span id="recommended-n">—</span> <small id="recommended-unit-label">sampling units</small></div>
             <p id="plan-summary"></p>
+            <div id="allocation-output" class="allocation-output hidden"></div>
           </div>
           <div class="result-details">
-            <div><span>Expected SD</span><strong id="expected-sd">—</strong></div>
-            <div><span>Absolute precision</span><strong id="absolute-precision">—</strong></div>
-            <div><span>Confidence</span><strong id="result-confidence">—</strong></div>
+            <div><span id="expected-sd-label">Expected SD</span><strong id="expected-sd">—</strong></div>
+            <div><span id="absolute-precision-label">Absolute precision</span><strong id="absolute-precision">—</strong></div>
+            <div><span>Confidence / target</span><strong id="result-confidence">—</strong></div>
             <div><span>Suggested design</span><strong id="suggested-design">—</strong></div>
           </div>
           <button class="button primary jump" data-view="map">Lay Out This Sample on the Map</button>
@@ -194,7 +270,7 @@
             <h3>Define the population and place the sample</h3>
           </div>
           <div class="toolbar-actions">
-            <label class="button secondary file-button">Import GeoJSON<input id="geojson-upload" type="file" accept=".json,.geojson,application/geo+json,application/json" /></label>
+            <label class="button secondary file-button">Import Boundary<input id="boundary-upload" type="file" accept=".json,.geojson,.kml,.kmz,application/geo+json,application/json,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz" /></label>
             <button id="export-kml" class="button secondary">Export KML</button>
             <button id="export-kmz" class="button secondary">Export KMZ</button>
             <button id="export-csv" class="button secondary">Export CSV</button>
@@ -221,6 +297,7 @@
             <label>Edge buffer (feet)
               <input id="edge-buffer" type="number" min="0" step="1" value="0" />
             </label>
+            <label class="check-row"><input id="buffer-ack" type="checkbox" /> Redefine the sampling population by excluding this edge band</label>
             <label>Plot size
               <select id="plot-size">
                 <option value="0">Centers only</option>
@@ -238,11 +315,12 @@
             <div class="map-stats">
               <div><span>Mapped area</span><strong id="mapped-acres">0 acres</strong></div>
               <div><span>Generated plots</span><strong id="generated-count">0</strong></div>
+              <div><span>Layout note</span><strong id="layout-note">—</strong></div>
             </div>
 
             <div class="mini-guidance">
               <strong>Freese Guidance</strong>
-              <p>Do not casually move inconvenient points. Avoiding brush, openings, wet ground, or other difficult locations can introduce selection bias.</p>
+              <p>Do not casually move inconvenient points. Avoiding brush, openings, wet ground, or other difficult locations can introduce selection bias. Systematic samples keep their regular spacing; Freese Frame will not thin a grid merely to force an exact target count.</p>
             </div>
           </aside>
         </div>
@@ -252,13 +330,18 @@
         <div class="section-grid two-col">
           <div class="panel">
             <div class="panel-heading">
-              <div><span class="eyebrow">Analyze Data</span><h3>Paste sample observations</h3></div>
+              <div><span class="eyebrow">Analyze Data</span><h3>Analyze observations by design</h3></div>
               <span class="method-badge">Freese Method</span>
             </div>
-            <label>Observations
-              <textarea id="sample-values" rows="14" placeholder="Paste one value per line, or values separated by commas or spaces.">72 84 91 65 78 88 95 81 76 90</textarea>
-            </label>
+
             <div class="form-grid compact">
+              <label>Analysis type
+                <select id="analysis-type">
+                  <option value="srs">Simple random — continuous variable</option>
+                  <option value="proportion">Simple random — proportion / attribute</option>
+                  <option value="systematic">Systematic — descriptive results only</option>
+                </select>
+              </label>
               <label>Population size, N
                 <input id="analysis-population" type="number" min="0" value="1000" />
               </label>
@@ -273,22 +356,45 @@
                 <input id="analysis-expansion" type="number" min="0.0001" step="any" value="1" />
               </label>
             </div>
+
+            <div id="continuous-analysis-fields">
+              <label>Observations
+                <textarea id="sample-values" rows="12" placeholder="Paste one value per line, or values separated by commas or spaces.">72 84 91 65 78 88 95 81 76 90</textarea>
+              </label>
+            </div>
+
+            <div id="proportion-analysis-fields" class="method-fields hidden">
+              <div class="form-grid compact">
+                <label>Number with attribute / successes
+                  <input id="analysis-successes" type="number" min="0" step="1" value="39" />
+                </label>
+                <label>Number observed
+                  <input id="analysis-trials" type="number" min="1" step="1" value="50" />
+                </label>
+              </div>
+            </div>
+
+            <div id="systematic-warning" class="warning-box hidden">
+              <strong>Systematic-sample error warning</strong>
+              <p>Freese cautions that random-sampling formulas can materially misstate the precision of a systematic sample when the population has spatial pattern. Freese Frame will report descriptive statistics here, but it will not label an SRS confidence interval as valid for a systematic sample.</p>
+            </div>
+
             <button id="analyze-values" class="button primary">Analyze Sample</button>
           </div>
 
           <aside class="guidance-panel">
             <span class="source-label">Freese Guidance</span>
             <h4>An estimate needs an indication of reliability.</h4>
-            <p>Freese emphasizes the importance of the standard error and confidence limits. Freese Frame therefore keeps uncertainty next to the estimate rather than treating it as an optional advanced statistic.</p>
-            <div class="citation">Frank Freese, <em>Elementary Forest Sampling</em>, “Standard Errors and Confidence Limits.”</div>
+            <p>Freese emphasizes the importance of standard error and confidence limits, but also that the error equation must match the sampling design. Freese Frame now blocks or labels calculations when that condition is not met.</p>
+            <div class="citation">Frank Freese, <em>Elementary Forest Sampling</em>, “Standard Errors and Confidence Limits” and “Systematic Sampling.”</div>
           </aside>
         </div>
 
         <div id="analysis-results" class="stats-grid hidden">
-          <div class="stat-card"><span>Observations</span><strong id="stat-n">—</strong></div>
-          <div class="stat-card"><span>Mean</span><strong id="stat-mean">—</strong></div>
-          <div class="stat-card"><span>Std. deviation</span><strong id="stat-sd">—</strong></div>
-          <div class="stat-card"><span>Coefficient of variation</span><strong id="stat-cv">—</strong></div>
+          <div class="stat-card"><span id="stat-n-label">Observations</span><strong id="stat-n">—</strong></div>
+          <div class="stat-card"><span id="stat-mean-label">Mean</span><strong id="stat-mean">—</strong></div>
+          <div class="stat-card"><span id="stat-sd-label">Std. deviation</span><strong id="stat-sd">—</strong></div>
+          <div class="stat-card"><span id="stat-cv-label">Coefficient of variation</span><strong id="stat-cv">—</strong></div>
           <div class="stat-card"><span>Standard error</span><strong id="stat-se">—</strong></div>
           <div class="stat-card highlight"><span>Confidence interval</span><strong id="stat-ci">—</strong></div>
           <div class="stat-card"><span>Expanded mean</span><strong id="stat-expanded">—</strong></div>
