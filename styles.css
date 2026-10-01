@@ -198,3 +198,9 @@ input:focus, select:focus, textarea:focus { border-color: var(--forest); box-sha
 .allocation-output th, .allocation-output td { padding: 6px 7px; border-bottom: 1px solid rgba(35,69,47,.12); text-align: left; }
 .allocation-output th { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
 code { background: rgba(35,69,47,.07); padding: 1px 4px; border-radius: 4px; }
+
+
+.flamingo-marker-wrap { background: transparent !important; border: 0 !important; }
+.flamingo-marker { position: relative; width: 34px; height: 42px; display: flex; align-items: flex-start; justify-content: center; filter: drop-shadow(0 2px 2px rgba(0,0,0,.35)); }
+.flamingo-emoji { font-size: 30px; line-height: 32px; transform: translateY(-1px); }
+.flamingo-number { position: absolute; right: -2px; bottom: 0; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; display: grid; place-items: center; background: #ffffff; color: #232824; border: 1px solid #232824; font-size: 9px; font-weight: 800; line-height: 1; }
