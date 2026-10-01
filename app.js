@@ -446,8 +446,8 @@
     state.mapInitialized=true;
     map=L.map("map",{zoomControl:true}).setView([44.4,-72.7],8);
 
-    const streets=L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"&copy; OpenStreetMap contributors"});
-    const imagery=L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,attribution:"Tiles &copy; Esri and imagery providers"}).addTo(map);
+    const streets=L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,crossOrigin:true,attribution:"&copy; OpenStreetMap contributors"});
+    const imagery=L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,crossOrigin:true,attribution:"Tiles &copy; Esri and imagery providers"}).addTo(map);
     L.control.layers({"Aerial imagery":imagery,"Street map":streets},null,{position:"topright"}).addTo(map);
 
     drawnItems=new L.FeatureGroup().addTo(map);
@@ -757,6 +757,184 @@
       return [i+1,lat,lng,state.sampleDesign,+$("plot-size").value||0].join(",");
     }));
     downloadBlob(new Blob([lines.join("\n")],{type:"text/csv"}),"freese-frame-sample.csv");
+  });
+
+  function sanitizeFileName(name) {
+    return String(name || "freese-frame").trim().replace(/[^a-z0-9_-]+/gi,"-").replace(/^-+|-+$/g,"") || "freese-frame";
+  }
+
+  function mapCornerControlPoints() {
+    if(!map) return null;
+    const b=map.getBounds();
+    return {
+      west:b.getWest(), south:b.getSouth(), east:b.getEast(), north:b.getNorth(),
+      nw:[b.getNorth(),b.getWest()],
+      sw:[b.getSouth(),b.getWest()],
+      se:[b.getSouth(),b.getEast()],
+      ne:[b.getNorth(),b.getEast()]
+    };
+  }
+
+  function addGeoViewportToJsPdf(doc, mapBox, geo) {
+    if(!doc?.internal?.events || !geo) return;
+    const gpts=[
+      geo.nw[0],geo.nw[1],
+      geo.sw[0],geo.sw[1],
+      geo.se[0],geo.se[1],
+      geo.ne[0],geo.ne[1]
+    ].map(n=>Number(n).toFixed(10)).join(" ");
+    const bbox=[mapBox.x,mapBox.y,mapBox.x+mapBox.w,mapBox.y+mapBox.h].map(n=>Number(n).toFixed(3)).join(" ");
+    const wkt='GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433],AUTHORITY["EPSG","4326"]]';
+    doc.internal.events.subscribe("putPage", function(data) {
+      if(data.pageNumber!==1) return;
+      doc.internal.write("/VP [<< /Type /Viewport /Name (Sadler PDF Map) /BBox ["+bbox+"] /Measure << /Type /Measure /Subtype /GEO /Bounds [0 1 0 0 1 0 1 1] /LPTS [0 1 0 0 1 0 1 1] /GPTS ["+gpts+"] /GCS << /Type /GEOGCS /WKT ("+wkt.replace(/[()]/g,"")+") >> >> >>]");
+    });
+  }
+
+  async function buildSadlerPdfBlob() {
+    initMap();
+    if(!state.boundary) throw new Error("boundary");
+    if(!window.html2canvas || !window.jspdf?.jsPDF) throw new Error("library");
+
+    map.invalidateSize();
+    await new Promise(resolve=>setTimeout(resolve,250));
+
+    const mapEl=$("map");
+    const canvas=await html2canvas(mapEl,{
+      useCORS:true,
+      allowTaint:false,
+      backgroundColor:"#f5f3ec",
+      scale:2,
+      logging:false
+    });
+
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF({orientation:"landscape",unit:"pt",format:"letter",compress:true});
+    const pageW=doc.internal.pageSize.getWidth();
+    const pageH=doc.internal.pageSize.getHeight();
+
+    const margin=34, headerH=58, footerH=52;
+    const mapBox={x:margin,y:margin+headerH,w:pageW-margin*2,h:pageH-margin*2-headerH-footerH};
+    const imgData=canvas.toDataURL("image/jpeg",0.92);
+    doc.addImage(imgData,"JPEG",mapBox.x,mapBox.y,mapBox.w,mapBox.h,undefined,"FAST");
+
+    const geo=mapCornerControlPoints();
+    addGeoViewportToJsPdf(doc,mapBox,geo);
+
+    doc.setFillColor(35,69,47);
+    doc.rect(0,0,pageW,headerH+10,"F");
+    doc.setTextColor(255,255,255);
+    doc.setFont("helvetica","bold");
+    doc.setFontSize(20);
+    doc.text("Sadler PDF Map",margin,30);
+    doc.setFont("helvetica","normal");
+    doc.setFontSize(10);
+    const design=state.sampleDesign==="systematic"?"Systematic grid":"Simple random";
+    const count=state.sample?.features?.length || 0;
+    doc.text("Freese Frame  •  "+design+"  •  "+count+" sample locations",margin,47);
+
+    doc.setTextColor(35,40,36);
+    doc.setFontSize(8.5);
+    const acres=state.boundary ? turf.area(state.boundary)/4046.8564224 : 0;
+    doc.text("Mapped population: "+fmt(acres,2)+" acres",margin,pageH-34);
+    doc.text("WGS84 / EPSG:4326",margin,pageH-22);
+
+    if(geo) {
+      const extent="Extent: "+geo.west.toFixed(6)+", "+geo.south.toFixed(6)+"  to  "+geo.east.toFixed(6)+", "+geo.north.toFixed(6);
+      doc.text(extent,margin+150,pageH-34);
+      doc.text("Geospatial viewport: embedded WGS84 corner control points",margin+150,pageH-22);
+    }
+
+    doc.setFontSize(7.5);
+    doc.text("Based on Frank Freese, Elementary Forest Sampling, USDA Forest Service Agriculture Handbook No. 232.",pageW-margin,pageH-22,{align:"right"});
+
+    // Simple north arrow.
+    const nx=pageW-margin-22, ny=margin+headerH+34;
+    doc.setFillColor(255,255,255);
+    doc.roundedRect(nx-16,ny-22,32,48,4,4,"F");
+    doc.setTextColor(35,69,47);
+    doc.setFont("helvetica","bold");
+    doc.setFontSize(10);
+    doc.text("N",nx,ny-10,{align:"center"});
+    doc.setLineWidth(1.2);
+    doc.line(nx,ny+16,nx,ny-4);
+    doc.line(nx,ny-4,nx-5,ny+3);
+    doc.line(nx,ny-4,nx+5,ny+3);
+
+    // Scale bar based on current map resolution at center.
+    const center=map.getCenter();
+    const zoom=map.getZoom();
+    const metersPerPixel=156543.03392*Math.cos(center.lat*Math.PI/180)/Math.pow(2,zoom);
+    const targetPx=120;
+    const targetM=metersPerPixel*targetPx;
+    const choices=[10,20,50,100,200,500,1000,2000,5000,10000];
+    const scaleM=choices.reduce((best,v)=>Math.abs(v-targetM)<Math.abs(best-targetM)?v:best,choices[0]);
+    const scalePx=scaleM/metersPerPixel;
+    const scalePt=scalePx*(mapBox.w/mapEl.clientWidth);
+    const sx=mapBox.x+24, sy=mapBox.y+mapBox.h-24;
+    doc.setDrawColor(35,40,36);
+    doc.setLineWidth(3);
+    doc.line(sx,sy,sx+scalePt,sy);
+    doc.setLineWidth(1);
+    doc.line(sx,sy-5,sx,sy+5);
+    doc.line(sx+scalePt,sy-5,sx+scalePt,sy+5);
+    doc.setFillColor(255,255,255);
+    doc.rect(sx-4,sy-18,Math.max(72,scalePt+8),14,"F");
+    doc.setFont("helvetica","bold");
+    doc.setFontSize(8);
+    const scaleLabel=scaleM>=1000?(scaleM/1000)+" km":scaleM+" m";
+    doc.text(scaleLabel,sx+scalePt/2,sy-8,{align:"center"});
+
+    doc.setProperties({
+      title:"Sadler PDF Map",
+      subject:"Freese Frame georeferenced field map",
+      author:"Freese Frame",
+      keywords:"Sadler PDF Map, forest sampling, Frank Freese, GeoPDF, WGS84"
+    });
+
+    return doc.output("blob");
+  }
+
+  async function exportSadlerPdf() {
+    try {
+      const blob=await buildSadlerPdfBlob();
+      downloadBlob(blob,"Sadler-PDF-Map.pdf");
+      toast("Sadler PDF Map exported.");
+      return blob;
+    } catch(err) {
+      if(err.message==="boundary") toast("Draw or import a tract boundary before exporting a Sadler PDF Map.");
+      else if(err.message==="library") toast("PDF export libraries did not load. Reload the page and try again.");
+      else toast("Could not create the Sadler PDF Map. Try the street basemap if aerial imagery blocks capture.");
+      throw err;
+    }
+  }
+
+  $("export-sadler-pdf")?.addEventListener("click",async()=>{
+    try{await exportSadlerPdf();}catch(_){}
+  });
+
+  $("text-sadler-pdf")?.addEventListener("click",async()=>{
+    try {
+      const blob=await buildSadlerPdfBlob();
+      const file=new File([blob],"Sadler-PDF-Map.pdf",{type:"application/pdf"});
+      if(navigator.canShare && navigator.share && navigator.canShare({files:[file]})) {
+        await navigator.share({
+          title:"Sadler PDF Map",
+          text:"Freese Frame Sadler PDF Map",
+          files:[file]
+        });
+        toast("Sadler PDF Map opened in your device sharing options.");
+        return;
+      }
+      downloadBlob(blob,"Sadler-PDF-Map.pdf");
+      const body=encodeURIComponent("Sadler PDF Map from Freese Frame — the PDF has been downloaded to this device for attachment.");
+      window.location.href="sms:?&body="+body;
+      toast("PDF downloaded. Attach Sadler-PDF-Map.pdf to the text message.");
+    } catch(err) {
+      if(err && err.name==="AbortError") return;
+      if(err.message==="boundary") toast("Draw or import a tract boundary before sharing a Sadler PDF Map.");
+      else toast("Could not prepare the Sadler PDF Map for texting.");
+    }
   });
 
   function collectProject() {
