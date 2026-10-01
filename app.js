@@ -564,9 +564,15 @@
     fc.features.forEach((f,i)=>{
       f.properties={...f.properties,plot_id:i+1,design,plot_acres:acres};
       const [lng,lat]=f.geometry.coordinates;
+      const flamingoIcon=L.divIcon({
+        className:"flamingo-marker-wrap",
+        html:'<div class="flamingo-marker" aria-label="Plot '+(i+1)+'"><span class="flamingo-emoji">🦩</span><span class="flamingo-number">'+(i+1)+'</span></div>',
+        iconSize:[34,42],
+        iconAnchor:[17,36],
+        popupAnchor:[0,-34]
+      });
       sampleLayer.addLayer(
-        L.circleMarker([lat,lng],{radius:7,color:"#fff",weight:2,fillColor:color,fillOpacity:1})
-          .bindTooltip(String(i+1),{permanent:true,direction:"center",className:"plot-label"})
+        L.marker([lat,lng],{icon:flamingoIcon})
           .bindPopup("<strong>Plot "+(i+1)+"</strong><br>"+lat.toFixed(6)+", "+lng.toFixed(6)+"<br>Design: "+design)
       );
       if(radius>0) plotBoundaryLayer.addLayer(L.circle([lat,lng],{radius,color,weight:1,fillOpacity:.04,opacity:.75,interactive:false}));
